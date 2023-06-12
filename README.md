@@ -9,3 +9,6 @@
 # 当前功能
 1. 登录并获得token
 2. 读取任意课程类型，任意页的所有课程的信息
+
+# 示例
+![EX8]%ZS@DELX0UZ~D_E2EDG.png](EX8]%ZS@DELX0UZ~D_E2EDG.png)
