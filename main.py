@@ -25,8 +25,7 @@ class XMUCourseEntroller:
             response = requests.post(captcha_url)  # 不允许get方法
         except:
             raise '请求验证码失败'
-        image_data = response.json()['data']['captcha'].split(',')[
-            1]  # 获取base64原字符
+        image_data = response.json()['data']['captcha'].split(',')[1]  # 获取base64原字符
         uuid = response.json()['data']['uuid']  # 参数验证
         b64_data = b64decode(image_data)  # 编码为base64
         image = Image.open(io.BytesIO(b64_data))
@@ -61,6 +60,7 @@ class XMUCourseEntroller:
         headers = {
             'Authorization': self.token,
             'Content-Type': 'application/json;charset=UTF-8',  # 必须加这个，不然会返回html
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
         }
         list_url = 'http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/list'
         for classtype in classtypes:
@@ -118,20 +118,20 @@ class XMUCourseEntroller:
     def change_course(self,name:str,type:str):
         '''根据名字选取或者退出课程,type可以是add或del'''
         if type=='del':
-            url='http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/del'
+            url="http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/del"
         elif type=='add':
-            url='http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/add'
+            url="http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/add"
         else:
             raise Exception('请输入del或者add，分别是退课和选课')
-        
-        header={
+
+        header = {
             'Authorization': self.token,
-            'Content-Type':'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
         }
         course_info=self.course_list[name]
         payload = f'clazzType={course_info["classType"]}&clazzId={course_info["JXBID"]}&secretVal={course_info["secretVal"]}&needBook=&chooseVolunteer=1'
-
-        response=requests.post(url,headers=header,data=payload)
+        response = requests.request("POST", url, headers=header, data=payload)
         if json.loads(response.text)['msg']=='操作成功':
             if type=='add':
                 logging.info(f'成功选取课程{name}')
@@ -143,7 +143,9 @@ class XMUCourseEntroller:
             else:
                 logging.error(f'退选{name}失败,请检查{response.text}')
 
-
+    def load_token(self,token):
+        '''支持直接复制token进去，但需要你手动登录一次'''
+        self.token=token
 
 PASSWORD = ''  # 输入从官网中登录后，查看被md5和base64加密后的密码
 ID = ''
@@ -156,7 +158,6 @@ TEACHINGCLASSTYPE = {
 
 xmu=XMUCourseEntroller(ID,PASSWORD)
 xmu.login() #登录
-xmu.query_course_list(TEACHINGCLASSTYPE.values()) #获取课程信息，如果已经读取请删除这步
-xmu.load_course_list() #读取课程信息
+xmu.query_course_list([TEACHINGCLASSTYPE['本专业计划课程']]) 
 xmu.change_course('统计学与数据科学业界系列讲座','add') #加课
-xmu.del_course('统计学与数据科学业界系列讲座') #退课
+xmu.change_course('统计学与数据科学业界系列讲座','del') #退课
