@@ -11,4 +11,4 @@
 2. 读取任意课程类型，任意页的所有课程的信息
 
 # 示例
-![example](iamges/example.png)
+![example](images/example.png)
