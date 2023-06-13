@@ -5,9 +5,8 @@ from PIL import Image
 import io
 import time
 import logging
-from IPython.display import display
+# from IPython.display import display
 import json
-from urllib.parse import urlencode
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
@@ -17,24 +16,21 @@ class XMUCourseEntroller:
         self.__student_id=student_id
         self.__password=password
         self.course_list={}
-        self.session=requests.Session()
         
     def login(self):
         '''传入学号的加密后的密码，获得身份认证token'''
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
-        }
         captcha_url = 'http://xk.xmu.edu.cn/xsxkxmu/auth/captcha'
         try:
             logging.info('正在请求验证码')
-            response = self.session.post(captcha_url,headers=headers)  # 不允许get方法
+            response = requests.post(captcha_url)  # 不允许get方法
         except:
             raise '请求验证码失败'
         image_data = response.json()['data']['captcha'].split(',')[1]  # 获取base64原字符
         uuid = response.json()['data']['uuid']  # 参数验证
         b64_data = b64decode(image_data)  # 编码为base64
         image = Image.open(io.BytesIO(b64_data))
-        display(image)  # 显示在单元格下方
+        image.show()
+        # display(image)  # 显示在单元格下方
         captcha = input('输入captcha的内容')
         data = {
             'loginname': self.__student_id,
@@ -43,8 +39,8 @@ class XMUCourseEntroller:
             'uuid': uuid
         }
         logging.info('正在尝试登录')
-        login = self.session.post(
-            'http://xk.xmu.edu.cn/xsxkxmu/auth/login', data=data, allow_redirects=False,headers=headers)
+        login = requests.post(
+            'http://xk.xmu.edu.cn/xsxkxmu/auth/login', data=data, allow_redirects=False)
         try:
             token = login.json()['data']['token']  # 获取JWT身份认证
         except:
@@ -97,26 +93,54 @@ class XMUCourseEntroller:
                         'classCapacity': data['classCapacity'],  # 课程容量
                         'secretVal': data['secretVal'],  # 课程密钥
                         'classType':classtype,
-                        'numberOfFirstVolunteer':data['numberOfFirstVolunteer']
                     }
                     infos[data['KCM']] = info
                 time.sleep(delay) #建议设置 不然会403（辅导员警告）
-        self.course_list=infos
         try:
             with open('课程信息.json','wx') as f:
                 f.write(json.dumps(infos,ensure_ascii=False,indent=2))
-                logging.info(f'成功生成本地课程信息,共{len(infos)}条')
+                logging.info('成功生成课程信息')
         except:
             with open('课程信息.json','w') as f:
                 f.write(json.dumps(infos,ensure_ascii=False,indent=2))
-                logging.info(f'成功覆盖本地课程信息,共{len(infos)}条')
+                logging.info('成功覆盖课程信息')
     
-  
+    def query_page(self,classtype:str,pageNumber:int):
+        '''获取特定页依照特定课程类型获取密钥'''
+        if not self.token:
+            logging.error('请先登录！')
+            return 
+        infos = {}
+        headers = {
+            'Authorization': self.token,
+            'Content-Type': 'application/json;charset=UTF-8',  # 必须加这个，不然会返回html
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
+        }
+        list_url = 'http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/list'
+        payload = "{"+f'\"teachingClassType\":\"{classtype}\",\"pageNumber\":{pageNumber},\"pageSize\":10,\"orderBy\":\"\",\"campus\":\"1\"'+"}"
+        session=requests.Session()
+        courses = session.post(list_url, headers=headers, data=payload) #请求这页数据
+        rows=json.loads(courses.text)['data']['rows'] 
+        course_data = rows # 获取字典 一行中有多个课程
+        for course in course_data:
+            try:
+                data = course['tcList'][0]
+            except:
+                data=course #校选课没有tcList
+            info = {
+                'SKJS': data['SKJS'],  # 课程教师
+                'JXBID': data['JXBID'],  # 课程id
+                'numberOfSelected': data['numberOfSelected'],  # 课程选中数
+                'classCapacity': data['classCapacity'],  # 课程容量
+                'secretVal': data['secretVal'],  # 课程密钥
+                'classType':classtype,
+            }
+            infos[data['KCM']] = info
+        logging.info(f'成功获得课程类型{classtype}第{pageNumber}页的信息')
+        self.course_list=infos  
 
     def change_course(self,name:str,type:str):
         '''根据名字选取或者退出课程,type可以是add或del'''
-        course_info=self.course_list[name]
-        logging.info(f'正在尝试选取课程:{name},当前选择人数{course_info["numberOfSelected"]},\n当前志愿人数{course_info["numberOfFirstVolunteer"]},课容量上限{course_info["classCapacity"]}')
         if type=='del':
             url="http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/del"
         elif type=='add':
@@ -129,15 +153,9 @@ class XMUCourseEntroller:
             'Content-Type': 'application/x-www-form-urlencoded',
             'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
         }
-        
-        payload={
-            'clazzType':course_info["classType"],
-            'clazzId':course_info["JXBID"],
-            'secretVal':course_info["secretVal"],
-            'needBook':'',
-            'chooseVolunteer':1,
-        }
-        response = self.session.post(url, headers=header, data=urlencode(payload)) #必须要urlencode,不然会出错！
+        course_info=self.course_list[name]
+        payload = f'clazzType={course_info["classType"]}&clazzId={course_info["JXBID"]}&secretVal={course_info["secretVal"]}&needBook=&chooseVolunteer=1'
+        response = requests.request("POST", url, headers=header, data=payload)
         if json.loads(response.text)['msg']=='操作成功':
             if type=='add':
                 logging.info(f'成功选取课程{name}')
@@ -158,8 +176,9 @@ TEACHINGCLASSTYPE = {
     '本专业其他年级课程': 'FANKC',
     '体育课程': 'TYKC',
 }
+
 xmu=XMUCourseEntroller(ID,PASSWORD)
 xmu.login() #登录
-xmu.query_course_list(TEACHINGCLASSTYPE.values()) #由于每次密钥不一样,建议每次都读取一次
+xmu.query_page('TJKC',1)
 xmu.change_course('统计学与数据科学业界系列讲座','add') #加课
 xmu.change_course('统计学与数据科学业界系列讲座','del') #退课
