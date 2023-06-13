@@ -1,4 +1,4 @@
-# XMUCourseEnroller
+<h1 align="center" style="text-align:center;">XMUCourseEnroller</h1>
 🚩<span style="color:red;">请注意,请把握尺度,控制正常访问频率,不要滥用该程序</span>
 
 厦门大学选课系统抢课程序(尽可能ipynb上运行看结果)
