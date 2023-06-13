@@ -6,7 +6,9 @@
 3. 将token加入后续的请求头中
 4. 向list发送请求，获得所有课程的密钥、classid、选中人数、课程上限、课程名、课程老师（这里需要解析json），这里需要把payload加入data
 5. 向add或del的url发送post请求即可实现选课， 注意需要包装一个payload传入课程
+   
 > 需要注意的是,由于上传的密码会经过md5和base64加密，因此程序中的PASSWORD常量必须是在官网抓包login那个加密后的密码
+![password](images/password.gif)
 
 # 当前功能
 1. 登录并获得token
