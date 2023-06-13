@@ -1,5 +1,5 @@
 # XMUCourseEnroller
-厦门大学选课系统抢课程序
+厦门大学选课系统抢课程序(尽可能ipynb上运行看结果)
 # 主要思路
 1. 向captcha网址发送post，将返回的base64编码的验证码图片在本地显示
 2. 向login的链接发送登录请求，获得JWT验证token
