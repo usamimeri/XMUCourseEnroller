@@ -1,4 +1,6 @@
 # XMUCourseEnroller
+🚩<span style="color:red;">请注意,请把握尺度,控制正常访问频率,不要滥用该程序</span>
+
 厦门大学选课系统抢课程序(尽可能ipynb上运行看结果)
 > 需要注意的是,由于上传的密码会经过md5和base64加密，因此程序中的PASSWORD常量必须是在官网抓包login那个加密后的密码
 ![password](images/password.gif)
