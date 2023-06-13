@@ -16,6 +16,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 class AesUtil:
     '''JavaScript逆向得到的加密方式'''
+    def __init__(self,key) -> None:
+        self.key=key
 
     def pkcs7(self, text):
         """明文使用PKCS7填充 """
@@ -25,27 +27,32 @@ class AesUtil:
         padding_size = length if (bytes_length == length) else bytes_length
         padding = bs - padding_size % bs
         padding_text = chr(padding) * padding
+        self.coding = chr(padding)
         return text + padding_text
 
     # 将明文用AES加密
-    def AES_en(self, data, key):
+    def aes_encrypt(self, data):
         # 将长度不足16字节的字符串补齐
         if len(data) < 16:
             data = self.pkcs7(data)
-        AES_obj = AES.new(key.encode("utf-8"), AES.MODE_ECB)
+        AES_obj = AES.new(self.key.encode("utf-8"), AES.MODE_ECB)
         AES_en_str = AES_obj.encrypt(data.encode("utf-8"))
         AES_en_str = base64.b64encode(AES_en_str)
         AES_en_str = AES_en_str.decode("utf-8")
         return AES_en_str
-
+    def aes_decrypt(self, data):
+        """AES解密 """
+        cipher = AES.new(self.key, AES.MODE_ECB)
+        data = base64.b64decode(data)
+        text = cipher.decrypt(data).decode('utf-8')
+        return text.rstrip(self.coding)
 
 class XMUCourseEntroller:
     def __init__(self, student_id, password) -> None:
         self.token = None
-        self.aesutil = AesUtil()
+        self.aesutil = AesUtil('MWMqg2tPcDkxcm11')
         self.__student_id = student_id
-        self.__password = self.aesutil.AES_en(
-            password, 'MWMqg2tPcDkxcm11')  # 密钥是固定的
+        self.__password = self.aesutil.aes_encrypt(password)  # 密钥是固定的
         self.course_list = {}
         self.session = requests.Session()
 
@@ -218,3 +225,4 @@ if __name__ == '__main__':
     for course in COURSE_LIST:  # 演示用
         xmu.change_course(course, 'del')  # 退课
         xmu.loop_add_course(course)
+  
