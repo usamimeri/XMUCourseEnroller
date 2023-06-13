@@ -150,17 +150,17 @@ class XMUCourseEntroller:
             else:
                 logging.error(f'退选{name}失败,请检查{response.text}')
 
-
-PASSWORD = '='  # 输入从官网中登录后，查看被md5和base64加密后的密码
-ID = ''
-TEACHINGCLASSTYPE = {
-    '校选课': 'XGKC',
-    '本专业计划课程': 'TJKC',
-    '本专业其他年级课程': 'FANKC',
-    '体育课程': 'TYKC',
-}
-xmu=XMUCourseEntroller(ID,PASSWORD)
-xmu.login() #登录
-xmu.query_course_list(TEACHINGCLASSTYPE.values()) #由于每次密钥不一样,建议每次都读取一次
-xmu.change_course('统计学与数据科学业界系列讲座','add') #加课
-xmu.change_course('统计学与数据科学业界系列讲座','del') #退课
+if __name__ == '__main__':
+    PASSWORD = '你的密码'  # 输入从官网中登录后，查看被md5和base64加密后的密码
+    ID = '你的ID'
+    TEACHINGCLASSTYPE = {
+        '校选课': 'XGKC',
+        '本专业计划课程': 'TJKC',
+        '本专业其他年级课程': 'FANKC',
+        '体育课程': 'TYKC',
+    }
+    xmu=XMUCourseEntroller(ID,PASSWORD)
+    xmu.login() #登录
+    xmu.query_course_list(TEACHINGCLASSTYPE.values()) #由于每次密钥不一样,建议每次都读取一次
+    xmu.change_course('统计学与数据科学业界系列讲座','add') #加课
+    xmu.change_course('统计学与数据科学业界系列讲座','del') #退课
