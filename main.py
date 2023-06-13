@@ -153,11 +153,11 @@ class XMUCourseEntroller:
             else:
                 logging.error(f'退选{name}失败,请检查系统消息:{json.loads(response.text)["msg"]}')
                 return False
-    def loop_add_course(self,name,delay=0.3,loop_num=20):
-        '''循环抢课'''
+    def loop_add_course(self,name,delay=0.5,loop_num=10):
+        '''循环选课'''
         for i in range(1,loop_num+1):
             if self.change_course(name,'add'):
-                logging.info(f'循环抢课成功,共执行了{i}次')
+                logging.info(f'循环选课成功,共执行了{i}次')
                 time.sleep(1)
                 break
             time.sleep(delay)
