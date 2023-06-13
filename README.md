@@ -24,4 +24,4 @@
 5. 定时功能 比如每一段时间抓取课程信息观察各科老师受欢迎程度，以便及时避雷
 
 # 示例
-![example](images/result.png)
+![example](images/show.gif)
