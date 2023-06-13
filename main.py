@@ -5,7 +5,7 @@ from PIL import Image
 import io
 import time
 import logging
-# from IPython.display import display
+from IPython.display import display
 import json
 from urllib.parse import urlencode
 logging.captureWarnings(True)
@@ -34,8 +34,8 @@ class XMUCourseEntroller:
         uuid = response.json()['data']['uuid']  # 参数验证
         b64_data = b64decode(image_data)  # 编码为base64
         image = Image.open(io.BytesIO(b64_data))
-        image.show()
-        # display(image)  # 显示在单元格下方
+        # image.show()
+        display(image)  # 显示在单元格下方
         captcha = input('输入captcha的内容')
         data = {
             'loginname': self.__student_id,
@@ -70,16 +70,16 @@ class XMUCourseEntroller:
         }
         list_url = 'http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/list'
         for classtype in classtypes:
-            session = requests.Session() #这里不开新会话会报错403 因为太快了
+            # session = requests.Session() #这里不开新会话会报错403 因为太快了
             payload = "{"+f'\"teachingClassType\":\"{classtype}\",\"pageNumber\":1,\"pageSize\":10,\"orderBy\":\"\",\"campus\":\"1\"'+"}"
-            courses = session.post(list_url, headers=headers, data=payload)
+            courses = self.session.post(list_url, headers=headers, data=payload)
 
             page_num = (json.loads(courses.text)['data']['total']//10)+1 #比如五个课程只要遍历1页，15个课程遍历2页
             
             logging.info(f'获得课程类型:{classtype}共{page_num}页数')
             for pageNumber in range(1,page_num+1):  # 一旦满课程数返回空字典就break 这里只是一个上限
                 payload = "{"+f'\"teachingClassType\":\"{classtype}\",\"pageNumber\":{pageNumber},\"pageSize\":10,\"orderBy\":\"\",\"campus\":\"1\"'+"}"
-                courses = session.post(list_url, headers=headers, data=payload)
+                courses = self.session.post(list_url, headers=headers, data=payload)
                 if json.loads(courses.text)['code']==403:
                     logging.error('我想你可能爬得太快了')
                     raise Exception('爬虫过快')
@@ -142,25 +142,44 @@ class XMUCourseEntroller:
         if json.loads(response.text)['msg']=='操作成功':
             if type=='add':
                 logging.info(f'成功选取课程{name}')
+                return True
             else:
                 logging.info(f'成功退选课程{name}')
+                return True
         else:
             if type=='add':
-                logging.error(f'选取{name}失败,请检查{response.text}')
+                logging.error(f'选取{name}失败,请检查系统消息:{json.loads(response.text)["msg"]}')
+                return False
             else:
-                logging.error(f'退选{name}失败,请检查{response.text}')
+                logging.error(f'退选{name}失败,请检查系统消息:{json.loads(response.text)["msg"]}')
+                return False
+    def loop_add_course(self,name,delay=0.3,loop_num=20):
+        '''循环抢课'''
+        for i in range(1,loop_num+1):
+            if self.change_course(name,'add'):
+                logging.info(f'循环抢课成功,共执行了{i}次')
+                time.sleep(1)
+                break
+            time.sleep(delay)
+            
+
+
 
 if __name__ == '__main__':
-    PASSWORD = '你的密码'  # 输入从官网中登录后，查看被md5和base64加密后的密码
-    ID = '你的ID'
+    PASSWORD = ''  # 输入从官网中登录后，查看被md5和base64加密后的密码
+    ID = ''
     TEACHINGCLASSTYPE = {
         '校选课': 'XGKC',
         '本专业计划课程': 'TJKC',
         '本专业其他年级课程': 'FANKC',
         '体育课程': 'TYKC',
     }
+    COURSE_LIST=['商业社会与现代中国','国际经济与贸易学科前沿系列课程',
+                 '统计学与数据科学业界系列讲座','文献检索管理与分析'] #课程列表
     xmu=XMUCourseEntroller(ID,PASSWORD)
     xmu.login() #登录
-    xmu.query_course_list(TEACHINGCLASSTYPE.values()) #由于每次密钥不一样,建议每次都读取一次
-    xmu.change_course('统计学与数据科学业界系列讲座','add') #加课
-    xmu.change_course('统计学与数据科学业界系列讲座','del') #退课
+    xmu.query_course_list(TEACHINGCLASSTYPE.values(),delay=0.8) #由于每次密钥不一样,建议每次都读取一次
+    
+    for course in COURSE_LIST: #演示用
+        xmu.change_course(course,'del') #退课
+        xmu.loop_add_course(course)
