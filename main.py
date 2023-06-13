@@ -7,6 +7,7 @@ import time
 import logging
 from IPython.display import display
 import json
+from urllib.parse import urlencode
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
@@ -16,13 +17,17 @@ class XMUCourseEntroller:
         self.__student_id=student_id
         self.__password=password
         self.course_list={}
+        self.session=requests.Session()
         
     def login(self):
         '''传入学号的加密后的密码，获得身份认证token'''
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
+        }
         captcha_url = 'http://xk.xmu.edu.cn/xsxkxmu/auth/captcha'
         try:
             logging.info('正在请求验证码')
-            response = requests.post(captcha_url)  # 不允许get方法
+            response = self.session.post(captcha_url,headers=headers)  # 不允许get方法
         except:
             raise '请求验证码失败'
         image_data = response.json()['data']['captcha'].split(',')[1]  # 获取base64原字符
@@ -38,8 +43,8 @@ class XMUCourseEntroller:
             'uuid': uuid
         }
         logging.info('正在尝试登录')
-        login = requests.post(
-            'http://xk.xmu.edu.cn/xsxkxmu/auth/login', data=data, allow_redirects=False)
+        login = self.session.post(
+            'http://xk.xmu.edu.cn/xsxkxmu/auth/login', data=data, allow_redirects=False,headers=headers)
         try:
             token = login.json()['data']['token']  # 获取JWT身份认证
         except:
@@ -92,6 +97,7 @@ class XMUCourseEntroller:
                         'classCapacity': data['classCapacity'],  # 课程容量
                         'secretVal': data['secretVal'],  # 课程密钥
                         'classType':classtype,
+                        'numberOfFirstVolunteer':data['numberOfFirstVolunteer']
                     }
                     infos[data['KCM']] = info
                 time.sleep(delay) #建议设置 不然会403（辅导员警告）
@@ -99,24 +105,18 @@ class XMUCourseEntroller:
         try:
             with open('课程信息.json','wx') as f:
                 f.write(json.dumps(infos,ensure_ascii=False,indent=2))
-                logging.info('成功生成课程信息')
+                logging.info(f'成功生成本地课程信息,共{len(infos)}条')
         except:
             with open('课程信息.json','w') as f:
                 f.write(json.dumps(infos,ensure_ascii=False,indent=2))
-                logging.info('成功覆盖课程信息')
+                logging.info(f'成功覆盖本地课程信息,共{len(infos)}条')
     
-    def load_course_list(self):
-        '''读取课程信息，支持读取变量本身和本地数据'''
-        if self.course_list: #如果存了课程信息列表就返回
-            return self.course_list
-        elif os.path.exists('课程信息.json'):
-            with open('课程信息.json','r') as f:
-                self.course_list=json.load(f) #存储字典类型
-        else:
-            raise Exception('请先获取课程信息')
-    
+  
+
     def change_course(self,name:str,type:str):
         '''根据名字选取或者退出课程,type可以是add或del'''
+        course_info=self.course_list[name]
+        logging.info(f'正在尝试选取课程:{name},当前选择人数{course_info["numberOfSelected"]},\n当前志愿人数{course_info["numberOfFirstVolunteer"]},课容量上限{course_info["classCapacity"]}')
         if type=='del':
             url="http://xk.xmu.edu.cn/xsxkxmu/elective/clazz/del"
         elif type=='add':
@@ -129,9 +129,15 @@ class XMUCourseEntroller:
             'Content-Type': 'application/x-www-form-urlencoded',
             'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36',
         }
-        course_info=self.course_list[name]
-        payload = f'clazzType={course_info["classType"]}&clazzId={course_info["JXBID"]}&secretVal={course_info["secretVal"]}&needBook=&chooseVolunteer=1'
-        response = requests.request("POST", url, headers=header, data=payload)
+        
+        payload={
+            'clazzType':course_info["classType"],
+            'clazzId':course_info["JXBID"],
+            'secretVal':course_info["secretVal"],
+            'needBook':'',
+            'chooseVolunteer':1,
+        }
+        response = self.session.post(url, headers=header, data=urlencode(payload)) #必须要urlencode,不然会出错！
         if json.loads(response.text)['msg']=='操作成功':
             if type=='add':
                 logging.info(f'成功选取课程{name}')
@@ -143,9 +149,6 @@ class XMUCourseEntroller:
             else:
                 logging.error(f'退选{name}失败,请检查{response.text}')
 
-    def load_token(self,token):
-        '''支持直接复制token进去，但需要你手动登录一次'''
-        self.token=token
 
 PASSWORD = ''  # 输入从官网中登录后，查看被md5和base64加密后的密码
 ID = ''
@@ -155,9 +158,8 @@ TEACHINGCLASSTYPE = {
     '本专业其他年级课程': 'FANKC',
     '体育课程': 'TYKC',
 }
-
 xmu=XMUCourseEntroller(ID,PASSWORD)
 xmu.login() #登录
-xmu.query_course_list([TEACHINGCLASSTYPE['本专业计划课程']]) 
+xmu.query_course_list(TEACHINGCLASSTYPE.values()) #由于每次密钥不一样,建议每次都读取一次
 xmu.change_course('统计学与数据科学业界系列讲座','add') #加课
 xmu.change_course('统计学与数据科学业界系列讲座','del') #退课
